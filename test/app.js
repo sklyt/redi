@@ -88,6 +88,11 @@ function encodeCommand(cmd, toSetData = undefined) {
     combinedDatabuffer = Buffer.concat([keylen, key, valuelen, value, flagBuf])
 
 
+  }else if (cmd == "get" || cmd == "delete"){
+    const keylen = Buffer.alloc(4)
+    const key = Buffer.from(toSetData.key)
+    keylen.writeInt32BE(key.byteLength, 0)
+    combinedDatabuffer = Buffer.concat([keylen, key])
   }
 
 
@@ -102,7 +107,7 @@ function encodeCommand(cmd, toSetData = undefined) {
 
   let req
 
-  if (cmd == "set") {
+  if (cmd == "set" || cmd == "delete" || cmd == "get") {
     reqlen.writeInt32BE((4 + cmdlen.byteLength + cmd_.byteLength + datalen.byteLength + combinedDatabuffer.byteLength), 0)
     datalen.writeInt32BE(combinedDatabuffer.byteLength, 0)
     req = Buffer.concat([reqlen, cmdlen, cmd_, datalen, combinedDatabuffer])
@@ -246,7 +251,58 @@ describe('application', function () {
 })
 
 
+const sendSet = (client, data) => {
+  return new Promise((resolve, reject) => {
+    client.connect(3000, '127.0.0.1', () => {
+      debugLib.Debug("Test::set Client Connected", "info")
+      const req = encodeCommand("set",data)
+ 
+      client.write(req)
+    })
 
+
+
+    client.on("data", data => {
+      const statusCode = data.readInt32BE(0)
+      if (statusCode == 200)
+        resolve(true)
+      else
+        resolve(false)
+    })
+
+    client.on('error', (err) => {
+      debugLib.Debug(err, "error")
+      reject(false);
+    });
+
+
+  })
+}
+
+
+const getValue = (client, key) => {
+  return new Promise((resolve, reject) => {
+  client.connect(3000, '127.0.0.1', () => {
+    debugLib.Debug("Test::set Client Connected", "info")
+    const req = encodeCommand("get", { key})
+
+    client.write(req)
+
+    client.on("data", data => {
+      const statusCode = data.readInt32BE(0)
+      if (statusCode == 200)
+        resolve(true)
+      else
+        resolve(false)
+    })
+
+    client.on('error', (err) => {
+      debugLib.Debug(err, "error")
+      reject(false);
+    });
+  })
+})
+}
 describe("commands", function () {
   let redi;
   this.beforeEach((done) => {
@@ -268,43 +324,30 @@ describe("commands", function () {
     /**
    * @type {Socket}
    */
-    const client = new net.Socket();
+    const client = new net.Socket()
 
-    const sendSet = () => {
-      return new Promise((resolve, reject) => {
-        client.connect(3000, '127.0.0.1', () => {
-          debugLib.Debug("Test::set Client Connected", "info")
-          const req = encodeCommand("set", { key: "products", value: ["product 1", "product 2"] })
-     
-          client.write(req)
-        })
-
-
-
-        client.on("data", data => {
-          const statusCode = data.readInt32BE(0)
-          if (statusCode == 200)
-            resolve(true)
-          else
-            resolve(false)
-        })
-
-        client.on('error', (err) => {
-          debugLib.Debug(err, "error")
-          reject(false);
-        });
-
-
-      })
-
-
-
-
-    }
-
-    const res = await sendSet()
-    console.log("resolved", res)
+   
+    const res = await sendSet(client, { key: "products", value: ["product 1", "product 2"] })
+   
     equal(res, true)
   })
+
+  it('should get a value', async ()=> {
+      /**
+   * @type {Socket}
+   */
+  
+
+   
+      const setRes = await sendSet(new net.Socket(), { key: "languages", value: ["Golang", "JavaScript", "Cpp"] })
+     
+      equal(setRes, true)
+      const getRes = await getValue(new net.Socket(), "languages")
+      equal(getRes, true)
+      const getRes2 = await getValue(new net.Socket(), "products")
+      equal(getRes2, true)
+  })
+
+
 })
 

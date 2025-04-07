@@ -280,11 +280,11 @@ const sendSet = (client, data) => {
 }
 
 
-const getValue = (client, key) => {
+const getorDeleteValue = (client, key, cmdType) => {
   return new Promise((resolve, reject) => {
   client.connect(3000, '127.0.0.1', () => {
     debugLib.Debug("Test::set Client Connected", "info")
-    const req = encodeCommand("get", { key})
+    const req = encodeCommand(cmdType, { key})
 
     client.write(req)
 
@@ -342,10 +342,18 @@ describe("commands", function () {
       const setRes = await sendSet(new net.Socket(), { key: "languages", value: ["Golang", "JavaScript", "Cpp"] })
      
       equal(setRes, true)
-      const getRes = await getValue(new net.Socket(), "languages")
+      const getRes = await getorDeleteValue(new net.Socket(), "languages", "get")
       equal(getRes, true)
-      const getRes2 = await getValue(new net.Socket(), "products")
+      const getRes2 = await getorDeleteValue(new net.Socket(), "products", "get")
       equal(getRes2, true)
+  })
+
+  it("should delete value", async ()=> {
+     const delRes = await getorDeleteValue(new net.Socket(), "languages", "delete")
+     equal(delRes, true)
+     const getRes = await getorDeleteValue(new net.Socket(), "languages", "get")
+     equal(getRes, false)
+
   })
 
 

@@ -8,7 +8,7 @@ import net from "node:net"
  * 
  * Test are not complicated, we are simulating expected user interaction. And see if our application bahaves as expected.
  * 
- *  Unless you are an QA don't complicate them.
+ *  Unless you are a QA person avoid complicating them.
  * 
  * 
  *

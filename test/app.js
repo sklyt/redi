@@ -16,16 +16,24 @@ import net from "node:net"
 
 import createApp from "../lib/redi.js"
 import { Socket } from 'net';
+import debugLib from '../lib/utils.js';
 
 
 describe('application', function () {
-  this.beforeEach(()=> {
-    const redi = createApp({PORT: 3000, DEBUG: true, serverErrorCb: (ERR)=> {
+  let redi;
+  this.beforeEach((done)=> {
+     redi = createApp({PORT: 3000, DEBUG: false, serverErrorCb: (ERR)=> {
       console.log("abort")
       return
     }})
+
+    done()
   })
   
+  this.afterEach((done)=> {
+    redi(done)
+    
+  })
   it("should ping the server", async () => {
     /**
      * @type {Socket}
@@ -35,7 +43,7 @@ describe('application', function () {
     const connectToServer = () => {
       return new Promise((resolve, reject) => {
         client.connect(3000, '127.0.0.1', () => {
-          console.log('Client connected.');
+          debugLib.Debug("Test::app Client Connected", "info")
           const cmd = Buffer.from("ping") // ping command
           const data = Buffer.from("alive?") // abitrary data
           const reqlen = Buffer.alloc(4) // allocate 32 bits
@@ -98,7 +106,7 @@ describe('application', function () {
       this.timeout(3000);
        return new Promise((resolve, reject) => {
          client.connect(3000, '127.0.0.1', () => {
-           console.log('Client connected.');
+          debugLib.Debug("Test::app Client Connected", "info")
            const cmd = Buffer.from("pin") // ping command, not a command
            const data = Buffer.from("alive?") // abitrary data
            const reqlen = Buffer.alloc(4) // allocate 32 bits

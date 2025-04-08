@@ -88,7 +88,7 @@ function encodeCommand(cmd, toSetData = undefined) {
     combinedDatabuffer = Buffer.concat([keylen, key, valuelen, value, flagBuf])
 
 
-  }else if (cmd == "get" || cmd == "delete"){
+  } else if (cmd == "get" || cmd == "delete") {
     const keylen = Buffer.alloc(4)
     const key = Buffer.from(toSetData.key)
     keylen.writeInt32BE(key.byteLength, 0)
@@ -112,16 +112,39 @@ function encodeCommand(cmd, toSetData = undefined) {
     datalen.writeInt32BE(combinedDatabuffer.byteLength, 0)
     req = Buffer.concat([reqlen, cmdlen, cmd_, datalen, combinedDatabuffer])
   }
-  else{
+  else {
     reqlen.writeInt32BE((4 + cmdlen.byteLength + cmd_.byteLength), 0)
     req = Buffer.concat([reqlen, cmdlen, cmd_])
   }
-    
+
 
 
   return req
 
 
+}
+
+
+/**
+ *       * flags is data encoding -> [string, array, number, json]
+ *                                     0        1     2       3
+ */
+
+function decodeData(data, encoding){
+  
+  switch (encoding) {
+    case 0:
+       return  data
+    case 1 :
+       return JSON.parse(data)
+    case 2:
+        return Number(data)
+    case 3:
+        return JSON.parse(data)
+    
+    default:
+      break;
+  }
 }
 
 describe('application', function () {
@@ -255,8 +278,8 @@ const sendSet = (client, data) => {
   return new Promise((resolve, reject) => {
     client.connect(3000, '127.0.0.1', () => {
       debugLib.Debug("Test::set Client Connected", "info")
-      const req = encodeCommand("set",data)
- 
+      const req = encodeCommand("set", data)
+
       client.write(req)
     })
 
@@ -282,26 +305,40 @@ const sendSet = (client, data) => {
 
 const getorDeleteValue = (client, key, cmdType) => {
   return new Promise((resolve, reject) => {
-  client.connect(3000, '127.0.0.1', () => {
-    debugLib.Debug("Test::set Client Connected", "info")
-    const req = encodeCommand(cmdType, { key})
+    client.connect(3000, '127.0.0.1', () => {
+      debugLib.Debug("Test::set Client Connected", "info")
+      const req = encodeCommand(cmdType, { key })
 
-    client.write(req)
+      client.write(req)
 
-    client.on("data", data => {
-      const statusCode = data.readInt32BE(0)
-      if (statusCode == 200)
-        resolve(true)
-      else
-        resolve(false)
+      client.on("data", data => {
+  
+        const statusCode = data.readInt32BE(0)
+        if (statusCode == 200) {
+          // [statuscode, resplen, datalen, data, encoding]
+          if (cmdType ==="get") {
+            const encoding = data.readInt32BE(4)
+        
+            const d = decodeData(data.subarray(8).toString(), encoding)
+         
+         
+             resolve([true, d])
+    
+      
+          }
+          resolve(true)
+        }
+
+        else
+          resolve(false)
+      })
+
+      client.on('error', (err) => {
+        debugLib.Debug(err, "error")
+        reject(false);
+      });
     })
-
-    client.on('error', (err) => {
-      debugLib.Debug(err, "error")
-      reject(false);
-    });
   })
-})
 }
 describe("commands", function () {
   let redi;
@@ -326,33 +363,36 @@ describe("commands", function () {
    */
     const client = new net.Socket()
 
-   
+
     const res = await sendSet(client, { key: "products", value: ["product 1", "product 2"] })
-   
+
     equal(res, true)
   })
 
-  it('should get a value', async ()=> {
-      /**
-   * @type {Socket}
-   */
-  
+  it('should get a value', async () => {
+    /**
+ * @type {Socket}
+ */
 
-   
-      const setRes = await sendSet(new net.Socket(), { key: "languages", value: ["Golang", "JavaScript", "Cpp"] })
-     
-      equal(setRes, true)
-      const getRes = await getorDeleteValue(new net.Socket(), "languages", "get")
-      equal(getRes, true)
-      const getRes2 = await getorDeleteValue(new net.Socket(), "products", "get")
-      equal(getRes2, true)
+
+
+    const setRes = await sendSet(new net.Socket(), { key: "languages", value: ["Golang", "JavaScript", "Cpp"] })
+
+    equal(setRes, true)
+    const getRes = await getorDeleteValue(new net.Socket(), "languages", "get")
+    equal(getRes[0], true)
+    console.log(getRes[1], "languages data")
+    const getRes2 = await getorDeleteValue(new net.Socket(), "products", "get")
+    equal(getRes2[0], true)
+    console.log(getRes[1], "products data")
+
   })
 
-  it("should delete value", async ()=> {
-     const delRes = await getorDeleteValue(new net.Socket(), "languages", "delete")
-     equal(delRes, true)
-     const getRes = await getorDeleteValue(new net.Socket(), "languages", "get")
-     equal(getRes, false)
+  it("should delete value", async () => {
+    const delRes = await getorDeleteValue(new net.Socket(), "languages", "delete")
+    equal(delRes, true)
+    const getRes = await getorDeleteValue(new net.Socket(), "languages", "get")
+    equal(getRes, false)
 
   })
 

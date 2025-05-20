@@ -6,7 +6,7 @@ import net from "node:net"
  * 
  * We'll use mocha for **basic** unit testing and sanity check.
  * 
- * Test are not complicated, we are simulating expected user interaction. And see if our application bahaves as expected.
+ * Test are not complicated, we are simulating expected user interaction. And see if our application behaves as expected.
  * 
  *  Unless you are a QA person avoid complicating them.
  * 
@@ -210,8 +210,12 @@ describe('application', function () {
         });
 
         client.on("data", data => {
-
-          resolve(true)
+          const statusCode = data.readInt32BE(0)
+          debugLib.Debug(`ping status code: ${statusCode}`)
+          if (statusCode == 200)
+            resolve(true)
+          else
+            resolve(false)
         })
 
         client.on('error', (err) => {
